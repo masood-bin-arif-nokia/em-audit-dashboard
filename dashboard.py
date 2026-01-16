@@ -101,6 +101,23 @@ else:
 # ================= NEON CSS =================
 st.markdown("""
 <style>
+
+
+
+.neon-green { box-shadow: 0 0 18px rgba(34,197,94,.6); border: 1px solid rgba(34,197,94,.6); }
+.neon-amber { box-shadow: 0 0 18px rgba(245,158,11,.6); border: 1px solid rgba(245,158,11,.6); }
+.neon-red   { box-shadow: 0 0 18px rgba(239,68,68,.6); border: 1px solid rgba(239,68,68,.6); }
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.badge-green { background:#22C55E; color:black; }
+.badge-amber { background:#F59E0B; color:black; }
+.badge-red   { background:#EF4444; color:white; }
+
 .neon-card {
     background: linear-gradient(145deg, #0f172a, #020617);
     border-radius: 16px;
@@ -205,47 +222,6 @@ for region in df_d["Region"].unique():
             """, unsafe_allow_html=True)
 
 
-
-# ---------------- FLM RISK ----------------
-st.markdown("## 🚨 FLM Risk Ranking")
-
-flm = (
-    df.groupby(["Region", "FLM Name"])
-    .agg(
-        Total=("SiteID", "count"),
-        Fail=("Audit Status", lambda x: (x == "Fail").sum()),
-        Sites=("SiteID", lambda x: ", ".join(sorted(x.astype(str).unique())))
-    )
-    .reset_index()
-)
-
-flm["Fail %"] = (flm["Fail"] / flm["Total"] * 100).round(1)
-
-# Filter low-volume noise
-flm = flm[flm["Total"] >= 3]
-
-# Sort by highest risk
-flm = flm.sort_values("Fail %", ascending=False)
-
-# --------- HEATMAP ---------
-fig2 = px.imshow(
-    flm[["Fail %", "Fail", "Total"]],
-    color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
-    aspect="auto"
-)
-
-
-fig2.update_layout(
-    paper_bgcolor="#0B0F1A",
-    plot_bgcolor="#0B0F1A",
-    font_color="#E5E7EB",
-    height=500
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-
-
-)
 # ---------------- FLM RISK (WITH SITE IDS) ----------------
 st.markdown("## 🚨 FLM Risk Table (with SiteIDs)")
 
