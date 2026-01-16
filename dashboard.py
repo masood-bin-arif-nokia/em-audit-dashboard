@@ -290,4 +290,3 @@ fig2.update_layout(
 st.plotly_chart(fig2, use_container_width=True)
 st.markdown("### 📋 FLM Risk Table")
 st.dataframe(flm_summary, use_container_width=True, height=450)
-

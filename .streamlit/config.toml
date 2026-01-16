@@ -1,0 +1,7 @@
+[theme]
+base="dark"
+primaryColor="#00F5FF"          # Neon cyan
+backgroundColor="#0B0F1A"       # Deep dark blue
+secondaryBackgroundColor="#111827"
+textColor="#E5E7EB"
+font="sans serif"
