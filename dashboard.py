@@ -233,6 +233,7 @@ fig2 = px.imshow(
     color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
     aspect="auto"
 )
+)
 
 fig2.update_layout(
     paper_bgcolor="#0B0F1A",
