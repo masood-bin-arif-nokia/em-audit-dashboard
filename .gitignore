@@ -1,0 +1,7 @@
+# Generated reports
+output/
+data/Summary.pptx
+
+# Python
+__pycache__/
+*.pyc
