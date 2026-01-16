@@ -1,20 +1,16 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from pathlib import Path
+import os
 
-# =====================================================
-# PAGE CONFIG
-# =====================================================
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="EM Audit | Neon Analytics",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# =====================================================
-# NEON CSS
-# =====================================================
+# ---------------- NEON CSS ----------------
 st.markdown("""
 <style>
 .neon-card {
@@ -67,44 +63,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================================
-# TITLE + DOWNLOAD
-# =====================================================
-st.title("⚡ EM Audit – Neon Analytics Dashboard")
+# ---------------- TITLE ----------------
+st.title("EM Audit – Neon Analytics Dashboard")
 
-st.markdown("## 📥 Download Reports")
+# ---------------- DOWNLOAD SECTION ----------------
+st.markdown("## Download Reports")
 
-ppt_path = Path("data/Summary.pptx")
-if ppt_path.exists():
+ppt_path = "data/Summary.pptx"
+if os.path.exists(ppt_path):
     with open(ppt_path, "rb") as f:
         st.download_button(
-            label="Download Dashboard (PPT)",
+            label="Download Dashboard Summary (PPT)",
             data=f,
             file_name="EM_Audit_Dashboard_Summary.pptx",
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
         )
 else:
-    st.info("Summary PPT will be available after the next automation run.")
+    st.info("Summary PPT will appear here after the next automation run.")
 
-# =====================================================
-# LOAD DATA
-# =====================================================
+# ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
     return pd.read_excel("data/Mirror_C1.xlsx")
 
 df = load_data()
 
-# =====================================================
-# EXECUTIVE OVERVIEW
-# =====================================================
+# ---------------- EXECUTIVE OVERVIEW ----------------
 total_visits = len(df)
 pass_count = (df["Audit Status"] == "Pass").sum()
 fail_count = (df["Audit Status"] == "Fail").sum()
 exempted_count = (df["Audit Status"] == "Exempted").sum()
 pass_pct = round(pass_count / total_visits * 100, 1) if total_visits else 0
 
-st.markdown("## 🚀 Executive Overview")
+st.markdown("## Executive Overview")
+c1, c2, c3, c4 = st.columns(4)
 
 def neon_card(title, value, sub=""):
     st.markdown(f"""
@@ -115,16 +107,17 @@ def neon_card(title, value, sub=""):
     </div>
     """, unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4)
-with c1: neon_card("Total Visits", total_visits)
-with c2: neon_card("Pass", pass_count, f"{pass_pct}% Pass Rate")
-with c3: neon_card("Fail", fail_count)
-with c4: neon_card("Exempted", exempted_count)
+with c1:
+    neon_card("Total Visits", total_visits)
+with c2:
+    neon_card("Pass", pass_count, f"{pass_pct}% Pass Rate")
+with c3:
+    neon_card("Fail", fail_count)
+with c4:
+    neon_card("Exempted", exempted_count)
 
-# =====================================================
-# AUDIT STATUS DONUT
-# =====================================================
-st.markdown("## 🎯 Audit Status Distribution")
+# ---------------- AUDIT STATUS DONUT ----------------
+st.markdown("## Audit Status Distribution")
 
 fig = px.pie(
     df,
@@ -136,20 +129,50 @@ fig = px.pie(
         "Exempted": "#F59E0B"
     }
 )
-
 fig.update_layout(
     paper_bgcolor="#0B0F1A",
     plot_bgcolor="#0B0F1A",
     font_color="#E5E7EB",
     height=420
 )
-
 st.plotly_chart(fig, use_container_width=True)
 
-# =====================================================
-# REGION PERFORMANCE
-# =====================================================
-st.markdown("## 🌍 Region Performance")
+# ---------------- MONTHLY TREND ----------------
+st.markdown("## Monthly Audit Trend")
+
+df["Month"] = pd.to_datetime(df["Date of visit"], errors="coerce").dt.to_period("M").astype(str)
+
+trend = (
+    df.groupby(["Month", "Audit Status"])
+    .size()
+    .reset_index(name="Count")
+)
+
+fig_trend = px.bar(
+    trend,
+    x="Month",
+    y="Count",
+    color="Audit Status",
+    animation_frame="Month",
+    barmode="group",
+    color_discrete_map={
+        "Pass": "#22C55E",
+        "Fail": "#EF4444",
+        "Exempted": "#F59E0B"
+    }
+)
+
+fig_trend.update_layout(
+    paper_bgcolor="#0B0F1A",
+    plot_bgcolor="#0B0F1A",
+    font_color="#E5E7EB",
+    height=480
+)
+
+st.plotly_chart(fig_trend, use_container_width=True)
+
+# ---------------- REGION PERFORMANCE ----------------
+st.markdown("## Region Performance")
 
 regions = df["Region"].dropna().unique()
 cols = st.columns(4)
@@ -170,10 +193,8 @@ for i, region in enumerate(regions):
         </div>
         """, unsafe_allow_html=True)
 
-# =====================================================
-# DISTRICT PERFORMANCE (NEON + RISK)
-# =====================================================
-st.markdown("## 🧭 District Performance (By Region)")
+# ---------------- DISTRICT PERFORMANCE ----------------
+st.markdown("## District Performance (By Region)")
 
 df_district = df.dropna(subset=["Region", "District(Updated)"])
 
@@ -185,7 +206,6 @@ for region in df_district["Region"].unique():
 
     for i, district in enumerate(districts):
         d = region_df[region_df["District(Updated)"] == district]
-
         total = len(d)
         pass_cnt = (d["Audit Status"] == "Pass").sum()
         fail_cnt = (d["Audit Status"] == "Fail").sum()
@@ -216,50 +236,11 @@ for region in df_district["Region"].unique():
             </div>
             """, unsafe_allow_html=True)
 
-# =====================================================
-# DISTRICT RISK RANKING TABLE
-# =====================================================
-st.markdown("## 🚨 District Risk Ranking")
-
-district_risk = (
-    df_district.groupby(["Region", "District(Updated)"])
-    .agg(
-        Total_Visits=("SiteID", "count"),
-        Fail_Count=("Audit Status", lambda x: (x == "Fail").sum())
-    )
-    .reset_index()
-)
-
-district_risk["Fail %"] = (
-    district_risk["Fail_Count"] / district_risk["Total_Visits"] * 100
-).round(1)
-
-district_risk = district_risk[district_risk["Total_Visits"] >= 3]
-district_risk = district_risk.sort_values("Fail %", ascending=False)
-
-st.dataframe(district_risk, use_container_width=True, height=350)
-
-# =====================================================
-# DISTRICT FILTER → FLM DRILLDOWN
-# =====================================================
-st.markdown("## 🎯 Drill-Down Controls")
-
-selected_district = st.selectbox(
-    "Select District",
-    ["All"] + sorted(district_risk["District(Updated)"].unique().tolist())
-)
-
-flm_df = df.copy()
-if selected_district != "All":
-    flm_df = flm_df[flm_df["District(Updated)"] == selected_district]
-
-# =====================================================
-# FLM RISK RANKING
-# =====================================================
-st.markdown("## 🚨 FLM Risk Ranking")
+# ---------------- FLM RISK RANKING ----------------
+st.markdown("## FLM Risk Ranking")
 
 flm_summary = (
-    flm_df.groupby(["Region", "FLM Name"])
+    df.groupby(["Region", "FLM Name"])
     .agg(
         Total_Visits=("SiteID", "count"),
         Fail_Count=("Audit Status", lambda x: (x == "Fail").sum())
@@ -279,14 +260,13 @@ fig2 = px.imshow(
     color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
     aspect="auto"
 )
-
 fig2.update_layout(
     paper_bgcolor="#0B0F1A",
     plot_bgcolor="#0B0F1A",
     font_color="#E5E7EB",
     height=500
 )
-
 st.plotly_chart(fig2, use_container_width=True)
-st.markdown("### 📋 FLM Risk Table")
+
+st.markdown("### FLM Risk Table")
 st.dataframe(flm_summary, use_container_width=True, height=450)
