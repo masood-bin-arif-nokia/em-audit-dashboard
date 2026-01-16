@@ -121,7 +121,8 @@ for i, region in enumerate(regions):
                 ⚠️ Exempted: {(r["Audit Status"] == "Exempted").sum()}
             </div>
         </div>
-        """, unsafe_allow_html=True) update step 6 in this code
+        """, unsafe_allow_html=True) """, unsafe_allow_html=True)
+
         
         # ---------------- STEP 6: FLM RISK RANKING ----------------
 st.markdown("## 🚨 FLM Risk Ranking")
