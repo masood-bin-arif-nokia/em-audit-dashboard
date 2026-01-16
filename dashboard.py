@@ -34,10 +34,46 @@ st.markdown("""
     color: #9CA3AF;
     font-size: 13px;
 }
+
+/* Risk glows */
+.neon-green {
+    box-shadow: 0 0 18px rgba(34, 197, 94, 0.6);
+    border: 1px solid rgba(34, 197, 94, 0.6);
+}
+.neon-amber {
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.6);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+}
+.neon-red {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.6);
+    border: 1px solid rgba(239, 68, 68, 0.6);
+}
+
+/* Badges */
+.badge {
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.badge-green { background: #22C55E; color: black; }
+.badge-amber { background: #F59E0B; color: black; }
+.badge-red { background: #EF4444; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
+
 st.title("⚡ EM Audit – Neon Analytics Dashboard")
+st.markdown("## 📥 Download Reports")
+
+with open("data/Summary.pptx", "rb") as f:
+    st.download_button(
+        label="Download Dashboard (PPT)",
+        data=f,
+        file_name="EM_Audit_Dashboard_Summary.pptx",
+        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
+
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data
@@ -144,9 +180,21 @@ for region in df_district["Region"].unique():
         fail_cnt = (d["Audit Status"] == "Fail").sum()
         exempt_cnt = (d["Audit Status"] == "Exempted").sum()
 
+        fail_pct = round((fail_cnt / total) * 100, 1) if total else 0
+
+        if fail_pct >= 30:
+            glow = "neon-red"
+            badge = "badge-red"
+        elif fail_pct >= 10:
+            glow = "neon-amber"
+            badge = "badge-amber"
+        else:
+            glow = "neon-green"
+            badge = "badge-green"
+
         with cols[i % 4]:
             st.markdown(f"""
-            <div class="neon-card">
+            <div class="neon-card {glow}">
                 <div class="neon-title">{district}</div>
                 <div class="neon-sub">Total Visits</div>
                 <div class="neon-value">{total}</div>
@@ -155,8 +203,12 @@ for region in df_district["Region"].unique():
                     Fail: {fail_cnt} &nbsp;&nbsp;
                     Exempted: {exempt_cnt}
                 </div>
+                <div style="margin-top:8px;">
+                    <span class="badge {badge}">Fail %: {fail_pct}%</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
+
 
 
 
