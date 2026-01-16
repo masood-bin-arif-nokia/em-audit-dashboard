@@ -162,13 +162,15 @@ st.plotly_chart(fig2, use_container_width=True)
 st.markdown("### 📋 FLM Risk Table")
 st.dataframe(flm_summary, use_container_width=True, height=450)
 
-# ---------------- STEP 7: DISTRICT PERFORMANCE ----------------
+# ---------------- STEP 7: DISTRICT PERFORMANCE (NEON CARDS) ----------------
 st.markdown("## 🧭 District Performance (By Region)")
 
 df_district = df.dropna(subset=["Region", "District(Updated)"])
 
 for region in df_district["Region"].unique():
+
     st.markdown(f"### {region}")
+
     region_df = df_district[df_district["Region"] == region]
     districts = region_df["District(Updated)"].unique()
 
@@ -177,9 +179,21 @@ for region in df_district["Region"].unique():
     for i, district in enumerate(districts):
         d = region_df[region_df["District(Updated)"] == district]
 
+        total = len(d)
+        pass_cnt = (d["Audit Status"] == "Pass").sum()
+        fail_cnt = (d["Audit Status"] == "Fail").sum()
+        exempt_cnt = (d["Audit Status"] == "Exempted").sum()
+
         with cols[i % 4]:
-            st.markdown(f"**{district}**")
-            st.metric("Total Visits", len(d))
-            st.metric("Pass", (d["Audit Status"] == "Pass").sum())
-            st.metric("Fail", (d["Audit Status"] == "Fail").sum())
-            st.metric("Exempted", (d["Audit Status"] == "Exempted").sum())
+            st.markdown(f"""
+            <div class="neon-card">
+                <div class="neon-title">{district}</div>
+                <div class="neon-sub">Total Visits</div>
+                <div class="neon-value">{total}</div>
+                <div class="neon-sub">
+                    Pass: {pass_cnt} &nbsp;&nbsp;
+                    Fail: {fail_cnt} &nbsp;&nbsp;
+                    Exempted: {exempt_cnt}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
