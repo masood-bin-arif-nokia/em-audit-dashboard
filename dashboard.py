@@ -131,12 +131,17 @@ else:
     st.info("Summary PPT will appear after the next automation run.")
 
 # PDF (NEW)
-pdf_buffer = generate_pdf(df)
-st.download_button(
-    label="Download Dashboard (PDF)",
-    data=pdf_buffer,
-    file_name="EM_Audit_Dashboard_Summary.pdf",
-    mime="application/pdf"
+if st.button("Prepare Dashboard PDF"):
+    with st.spinner("Generating PDF..."):
+        pdf_buffer = generate_pdf(df)
+
+    st.download_button(
+        label="Download Dashboard (PDF)",
+        data=pdf_buffer,
+        file_name="EM_Audit_Dashboard_Summary.pdf",
+        mime="application/pdf"
+    )
+
 )
 
 # ---------------- REST OF YOUR DASHBOARD ----------------
