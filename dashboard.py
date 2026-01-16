@@ -208,9 +208,9 @@ for region in df_district["Region"].dropna().unique():
                 <div class="neon-sub">Total Visits</div>
                 <div class="neon-value">{total}</div>
                 <div class="neon-sub">
-                    ✅ Pass: {pass_cnt} &nbsp;&nbsp;
-                    ❌ Fail: {fail_cnt} &nbsp;&nbsp;
-                    ⚠️ Exempted: {exempt_cnt}
+                    Pass: {pass_cnt} &nbsp;&nbsp;
+                    Fail: {fail_cnt} &nbsp;&nbsp;
+                    Exempted: {exempt_cnt}
                 </div>
             </div>
             """, unsafe_allow_html=True)
