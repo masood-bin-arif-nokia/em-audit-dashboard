@@ -64,15 +64,23 @@ st.markdown("""
 
 
 st.title("⚡ EM Audit – Neon Analytics Dashboard")
+from pathlib import Path
+
 st.markdown("## 📥 Download Reports")
 
-with open("data/Summary.pptx", "rb") as f:
-    st.download_button(
-        label="Download Dashboard (PPT)",
-        data=f,
-        file_name="EM_Audit_Dashboard_Summary.pptx",
-        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    )
+ppt_path = Path("data/Summary.pptx")
+
+if ppt_path.exists():
+    with open(ppt_path, "rb") as f:
+        st.download_button(
+            label="Download Dashboard (PPT)",
+            data=f,
+            file_name="EM_Audit_Dashboard_Summary.pptx",
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        )
+else:
+    st.info("Summary PPT will be available after the next automation run.")
+
 
 
 # ---------------- LOAD DATA ----------------
