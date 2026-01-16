@@ -9,18 +9,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ---------------- NEON THEME CSS ----------------
+# ---------------- NEON CSS ----------------
 st.markdown("""
 <style>
-body {
-    background-color: #0B0F1A;
-}
 .neon-card {
     background: linear-gradient(145deg, #0f172a, #020617);
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 0 18px rgba(0, 245, 255, 0.35);
+    box-shadow: 0 0 15px rgba(0, 245, 255, 0.35);
     border: 1px solid rgba(0, 245, 255, 0.25);
 }
 .neon-title {
@@ -49,7 +46,7 @@ def load_data():
 
 df = load_data()
 
-# ---------------- EXECUTIVE KPI STRIP ----------------
+# ---------------- STEP 3: EXECUTIVE KPI STRIP ----------------
 total_visits = len(df)
 pass_count = (df["Audit Status"] == "Pass").sum()
 fail_count = (df["Audit Status"] == "Fail").sum()
@@ -81,7 +78,7 @@ with c3:
 with c4:
     neon_card("Exempted", exempted_count)
 
-# ---------------- NEON DONUT CHART ----------------
+# ---------------- STEP 4: NEON DONUT ----------------
 st.markdown("## 🎯 Audit Status Distribution")
 
 fig = px.pie(
@@ -104,7 +101,7 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------- REGION PERFORMANCE (NEON CARDS) ----------------
+# ---------------- STEP 5: REGION PERFORMANCE (NEON CARDS) ----------------
 st.markdown("## 🌍 Region Performance")
 
 regions = df["Region"].dropna().unique()
@@ -124,11 +121,12 @@ for i, region in enumerate(regions):
                 ⚠️ Exempted: {(r["Audit Status"] == "Exempted").sum()}
             </div>
         </div>
-        """, unsafe_allow_html=True)
-
-# ---------------- FLM RISK RANKING ----------------
+        """, unsafe_allow_html=True) update step 6 in this code
+        
+        # ---------------- STEP 6: FLM RISK RANKING (NEON ANALYTICS) ----------------
 st.markdown("## 🚨 FLM Risk Ranking")
 
+# Aggregate by FLM
 flm_summary = (
     df.groupby(["Region", "FLM Name"])
     .agg(
@@ -138,38 +136,85 @@ flm_summary = (
     .reset_index()
 )
 
+# Calculate Fail %
 flm_summary["Fail %"] = (
     flm_summary["Fail_Count"] / flm_summary["Total_Visits"] * 100
 ).round(1)
 
-# Filter noise
+# Remove low-volume noise (recommended)
 flm_summary = flm_summary[flm_summary["Total_Visits"] >= 3]
 
-# Sort by risk
+# Sort by risk (highest first)
 flm_summary = flm_summary.sort_values(
     ["Fail %", "Fail_Count"], ascending=False
 )
 
-# Heatmap
+# ---------------- NEON HEATMAP ----------------
 st.markdown("### 🔥 FLM Risk Heatmap")
 
-fig2 = px.imshow(
-    flm_summary[["Fail %", "Fail_Count", "Total_Visits"]],
-    color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
+heatmap_df = flm_summary[["Fail %", "Fail_Count", "Total_Visits"]]
+
+fig = px.imshow(
+    heatmap_df,
+    color_continuous_scale=[
+        "#22C55E",   # Green (low risk)
+        "#F59E0B",   # Amber
+        "#EF4444"    # Red (high risk)
+    ],
     aspect="auto"
 )
 
-fig2.update_layout(
+fig.update_layout(
     paper_bgcolor="#0B0F1A",
     plot_bgcolor="#0B0F1A",
     font_color="#E5E7EB",
     height=500
 )
 
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
-# Table
-st.markdown("### 📋 FLM Risk Table")
+
+# ---------------- STEP 7: DISTRICT PERFORMANCE BY REGION ----------------
+st.markdown("## 🧭 District Performance (By Region)")
+
+df_district = df.dropna(subset=["Region", "District(Updated)"])
+
+for region in df_district["Region"].dropna().unique():
+
+    st.markdown(f"### 🌍 {region}")
+
+    region_df = df_district[df_district["Region"] == region]
+
+    districts = region_df["District(Updated)"].unique()
+
+    cols = st.columns(4)
+
+    for i, district in enumerate(districts):
+        d = region_df[region_df["District(Updated)"] == district]
+
+        total = len(d)
+        pass_cnt = (d["Audit Status"] == "Pass").sum()
+        fail_cnt = (d["Audit Status"] == "Fail").sum()
+        exempt_cnt = (d["Audit Status"] == "Exempted").sum()
+
+        with cols[i % 4]:
+            st.markdown(f"""
+            <div class="neon-card">
+                <div class="neon-title">{district}</div>
+                <div class="neon-sub">Total Visits</div>
+                <div class="neon-value">{total}</div>
+                <div class="neon-sub">
+                    ✅ Pass: {pass_cnt} &nbsp;&nbsp;
+                    ❌ Fail: {fail_cnt} &nbsp;&nbsp;
+                    ⚠️ Exempted: {exempt_cnt}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+
+# ---------------- RANKED TABLE ----------------
+st.markdown("### 📋 FLM Risk Table (Highest Risk on Top)")
 
 st.dataframe(
     flm_summary,
