@@ -243,8 +243,24 @@ fig2.update_layout(
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# --------- TABLE ---------
-st.markdown("### 📋 FLM Risk Table (with SiteIDs)")
+
+)
+# ---------------- FLM RISK (WITH SITE IDS) ----------------
+st.markdown("## 🚨 FLM Risk Table (with SiteIDs)")
+
+flm = (
+    df.groupby(["Region", "FLM Name"])
+    .agg(
+        Total=("SiteID", "count"),
+        Fail=("Audit Status", lambda x: (x == "Fail").sum()),
+        Sites=("SiteID", lambda x: ", ".join(sorted(set(x.astype(str)))))
+    )
+    .reset_index()
+)
+
+flm["Fail %"] = (flm["Fail"] / flm["Total"] * 100).round(1)
+flm = flm[flm["Total"] >= 3].sort_values("Fail %", ascending=False)
+
 st.dataframe(
     flm,
     use_container_width=True,
