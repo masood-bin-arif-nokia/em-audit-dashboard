@@ -2,46 +2,177 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="EM Audit Dashboard", layout="wide")
-st.title("📊 EM Audit Dashboard")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="EM Audit | Neon Analytics",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
+# ---------------- NEON THEME CSS ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #0B0F1A;
+}
+.neon-card {
+    background: linear-gradient(145deg, #0f172a, #020617);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 0 18px rgba(0, 245, 255, 0.35);
+    border: 1px solid rgba(0, 245, 255, 0.25);
+}
+.neon-title {
+    color: #00F5FF;
+    font-size: 16px;
+    font-weight: 600;
+}
+.neon-value {
+    font-size: 34px;
+    font-weight: 800;
+    color: #A7F3D0;
+}
+.neon-sub {
+    color: #9CA3AF;
+    font-size: 13px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("⚡ EM Audit – Neon Analytics Dashboard")
+
+# ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
     return pd.read_excel("data/Mirror_C1.xlsx")
 
 df = load_data()
 
-# ---------------- SUMMARY TABLE ----------------
-summary = df.groupby("Region").agg(
-    Unique_Sites=("SiteID", "nunique"),
-    Total_Visits=("SiteID", "count"),
-    Pass_Count=("Audit Status", lambda x: (x == "Pass").sum()),
-    Fail_Count=("Audit Status", lambda x: (x == "Fail").sum()),
-    Exempted_Count=("Audit Status", lambda x: (x == "Exempted").sum())
-).reset_index()
+# ---------------- EXECUTIVE KPI STRIP ----------------
+total_visits = len(df)
+pass_count = (df["Audit Status"] == "Pass").sum()
+fail_count = (df["Audit Status"] == "Fail").sum()
+exempted_count = (df["Audit Status"] == "Exempted").sum()
+pass_pct = round(pass_count / total_visits * 100, 1) if total_visits else 0
 
-for col in ["Pass", "Fail", "Exempted"]:
-    summary[f"{col} %"] = (
-        summary[f"{col}_Count"] / summary["Total_Visits"] * 100
-    ).round(1)
+st.markdown("## 🚀 Executive Overview")
 
-st.subheader("Overall Summary")
-st.dataframe(summary, use_container_width=True)
+c1, c2, c3, c4 = st.columns(4)
 
-st.plotly_chart(
-    px.pie(df, names="Audit Status", hole=0.4),
-    use_container_width=True
+def neon_card(title, value, sub=""):
+    st.markdown(f"""
+    <div class="neon-card">
+        <div class="neon-title">{title}</div>
+        <div class="neon-value">{value}</div>
+        <div class="neon-sub">{sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c1:
+    neon_card("Total Visits", total_visits)
+
+with c2:
+    neon_card("Pass", pass_count, f"{pass_pct}% Pass Rate")
+
+with c3:
+    neon_card("Fail", fail_count)
+
+with c4:
+    neon_card("Exempted", exempted_count)
+
+# ---------------- NEON DONUT CHART ----------------
+st.markdown("## 🎯 Audit Status Distribution")
+
+fig = px.pie(
+    df,
+    names="Audit Status",
+    hole=0.55,
+    color_discrete_map={
+        "Pass": "#22C55E",
+        "Fail": "#EF4444",
+        "Exempted": "#F59E0B"
+    }
 )
 
-# ---------------- REGION PERFORMANCE ----------------
-st.subheader("Region Performance")
+fig.update_layout(
+    paper_bgcolor="#0B0F1A",
+    plot_bgcolor="#0B0F1A",
+    font_color="#E5E7EB",
+    height=420
+)
 
+st.plotly_chart(fig, use_container_width=True)
+
+# ---------------- REGION PERFORMANCE (NEON CARDS) ----------------
+st.markdown("## 🌍 Region Performance")
+
+regions = df["Region"].dropna().unique()
 cols = st.columns(4)
-for i, region in enumerate(df["Region"].dropna().unique()):
+
+for i, region in enumerate(regions):
     r = df[df["Region"] == region]
     with cols[i % 4]:
-        st.metric("Region", region)
-        st.metric("Total Visits", len(r))
-        st.metric("Pass", (r["Audit Status"] == "Pass").sum())
-        st.metric("Fail", (r["Audit Status"] == "Fail").sum())
-        st.metric("Exempted", (r["Audit Status"] == "Exempted").sum())
+        st.markdown(f"""
+        <div class="neon-card">
+            <div class="neon-title">{region}</div>
+            <div class="neon-sub">Total Visits</div>
+            <div class="neon-value">{len(r)}</div>
+            <div class="neon-sub">
+                ✅ Pass: {(r["Audit Status"] == "Pass").sum()} &nbsp;&nbsp;
+                ❌ Fail: {(r["Audit Status"] == "Fail").sum()} &nbsp;&nbsp;
+                ⚠️ Exempted: {(r["Audit Status"] == "Exempted").sum()}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ---------------- FLM RISK RANKING ----------------
+st.markdown("## 🚨 FLM Risk Ranking")
+
+flm_summary = (
+    df.groupby(["Region", "FLM Name"])
+    .agg(
+        Total_Visits=("SiteID", "count"),
+        Fail_Count=("Audit Status", lambda x: (x == "Fail").sum()),
+    )
+    .reset_index()
+)
+
+flm_summary["Fail %"] = (
+    flm_summary["Fail_Count"] / flm_summary["Total_Visits"] * 100
+).round(1)
+
+# Filter noise
+flm_summary = flm_summary[flm_summary["Total_Visits"] >= 3]
+
+# Sort by risk
+flm_summary = flm_summary.sort_values(
+    ["Fail %", "Fail_Count"], ascending=False
+)
+
+# Heatmap
+st.markdown("### 🔥 FLM Risk Heatmap")
+
+fig2 = px.imshow(
+    flm_summary[["Fail %", "Fail_Count", "Total_Visits"]],
+    color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
+    aspect="auto"
+)
+
+fig2.update_layout(
+    paper_bgcolor="#0B0F1A",
+    plot_bgcolor="#0B0F1A",
+    font_color="#E5E7EB",
+    height=500
+)
+
+st.plotly_chart(fig2, use_container_width=True)
+
+# Table
+st.markdown("### 📋 FLM Risk Table")
+
+st.dataframe(
+    flm_summary,
+    use_container_width=True,
+    height=450
+)
