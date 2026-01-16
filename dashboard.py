@@ -123,10 +123,9 @@ for i, region in enumerate(regions):
         </div>
         """, unsafe_allow_html=True) update step 6 in this code
         
-        # ---------------- STEP 6: FLM RISK RANKING (NEON ANALYTICS) ----------------
+        # ---------------- STEP 6: FLM RISK RANKING ----------------
 st.markdown("## 🚨 FLM Risk Ranking")
 
-# Aggregate by FLM
 flm_summary = (
     df.groupby(["Region", "FLM Name"])
     .agg(
@@ -136,42 +135,46 @@ flm_summary = (
     .reset_index()
 )
 
-# Calculate Fail %
 flm_summary["Fail %"] = (
     flm_summary["Fail_Count"] / flm_summary["Total_Visits"] * 100
 ).round(1)
 
-# Remove low-volume noise (recommended)
+# Filter low-volume noise
 flm_summary = flm_summary[flm_summary["Total_Visits"] >= 3]
 
-# Sort by risk (highest first)
+# Sort by highest risk
 flm_summary = flm_summary.sort_values(
     ["Fail %", "Fail_Count"], ascending=False
 )
 
-# ---------------- NEON HEATMAP ----------------
+# --------- HEATMAP ---------
 st.markdown("### 🔥 FLM Risk Heatmap")
 
 heatmap_df = flm_summary[["Fail %", "Fail_Count", "Total_Visits"]]
 
-fig = px.imshow(
+fig2 = px.imshow(
     heatmap_df,
-    color_continuous_scale=[
-        "#22C55E",   # Green (low risk)
-        "#F59E0B",   # Amber
-        "#EF4444"    # Red (high risk)
-    ],
+    color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
     aspect="auto"
 )
 
-fig.update_layout(
+fig2.update_layout(
     paper_bgcolor="#0B0F1A",
     plot_bgcolor="#0B0F1A",
     font_color="#E5E7EB",
     height=500
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig2, use_container_width=True)
+
+# --------- TABLE ---------
+st.markdown("### 📋 FLM Risk Table")
+
+st.dataframe(
+    flm_summary,
+    use_container_width=True,
+    height=450
+)
 
 
 # ---------------- STEP 7: DISTRICT PERFORMANCE BY REGION ----------------
