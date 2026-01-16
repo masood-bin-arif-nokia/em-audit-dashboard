@@ -101,7 +101,7 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------- STEP 5: REGION PERFORMANCE (NEON CARDS) ----------------
+# ---------------- STEP 5: REGION PERFORMANCE ----------------
 st.markdown("## 🌍 Region Performance")
 
 regions = df["Region"].dropna().unique()
@@ -116,15 +116,14 @@ for i, region in enumerate(regions):
             <div class="neon-sub">Total Visits</div>
             <div class="neon-value">{len(r)}</div>
             <div class="neon-sub">
-                ✅ Pass: {(r["Audit Status"] == "Pass").sum()} &nbsp;&nbsp;
-                ❌ Fail: {(r["Audit Status"] == "Fail").sum()} &nbsp;&nbsp;
-                ⚠️ Exempted: {(r["Audit Status"] == "Exempted").sum()}
+                Pass: {(r["Audit Status"] == "Pass").sum()} &nbsp;&nbsp;
+                Fail: {(r["Audit Status"] == "Fail").sum()} &nbsp;&nbsp;
+                Exempted: {(r["Audit Status"] == "Exempted").sum()}
             </div>
         </div>
-        """, unsafe_allow_html=True) """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-        
-        # ---------------- STEP 6: FLM RISK RANKING ----------------
+# ---------------- STEP 6: FLM RISK RANKING ----------------
 st.markdown("## 🚨 FLM Risk Ranking")
 
 flm_summary = (
@@ -140,21 +139,13 @@ flm_summary["Fail %"] = (
     flm_summary["Fail_Count"] / flm_summary["Total_Visits"] * 100
 ).round(1)
 
-# Filter low-volume noise
 flm_summary = flm_summary[flm_summary["Total_Visits"] >= 3]
-
-# Sort by highest risk
 flm_summary = flm_summary.sort_values(
     ["Fail %", "Fail_Count"], ascending=False
 )
 
-# --------- HEATMAP ---------
-st.markdown("### 🔥 FLM Risk Heatmap")
-
-heatmap_df = flm_summary[["Fail %", "Fail_Count", "Total_Visits"]]
-
 fig2 = px.imshow(
-    heatmap_df,
+    flm_summary[["Fail %", "Fail_Count", "Total_Visits"]],
     color_continuous_scale=["#22C55E", "#F59E0B", "#EF4444"],
     aspect="auto"
 )
@@ -168,27 +159,17 @@ fig2.update_layout(
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# --------- TABLE ---------
 st.markdown("### 📋 FLM Risk Table")
+st.dataframe(flm_summary, use_container_width=True, height=450)
 
-st.dataframe(
-    flm_summary,
-    use_container_width=True,
-    height=450
-)
-
-
-# ---------------- STEP 7: DISTRICT PERFORMANCE BY REGION ----------------
+# ---------------- STEP 7: DISTRICT PERFORMANCE ----------------
 st.markdown("## 🧭 District Performance (By Region)")
 
 df_district = df.dropna(subset=["Region", "District(Updated)"])
 
-for region in df_district["Region"].dropna().unique():
-
-    st.markdown(f"### 🌍 {region}")
-
+for region in df_district["Region"].unique():
+    st.markdown(f"### {region}")
     region_df = df_district[df_district["Region"] == region]
-
     districts = region_df["District(Updated)"].unique()
 
     cols = st.columns(4)
@@ -196,32 +177,9 @@ for region in df_district["Region"].dropna().unique():
     for i, district in enumerate(districts):
         d = region_df[region_df["District(Updated)"] == district]
 
-        total = len(d)
-        pass_cnt = (d["Audit Status"] == "Pass").sum()
-        fail_cnt = (d["Audit Status"] == "Fail").sum()
-        exempt_cnt = (d["Audit Status"] == "Exempted").sum()
-
         with cols[i % 4]:
-            st.markdown(f"""
-            <div class="neon-card">
-                <div class="neon-title">{district}</div>
-                <div class="neon-sub">Total Visits</div>
-                <div class="neon-value">{total}</div>
-                <div class="neon-sub">
-                    Pass: {pass_cnt} &nbsp;&nbsp;
-                    Fail: {fail_cnt} &nbsp;&nbsp;
-                    Exempted: {exempt_cnt}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-
-
-# ---------------- RANKED TABLE ----------------
-st.markdown("### 📋 FLM Risk Table (Highest Risk on Top)")
-
-st.dataframe(
-    flm_summary,
-    use_container_width=True,
-    height=450
-)
+            st.markdown(f"**{district}**")
+            st.metric("Total Visits", len(d))
+            st.metric("Pass", (d["Audit Status"] == "Pass").sum())
+            st.metric("Fail", (d["Audit Status"] == "Fail").sum())
+            st.metric("Exempted", (d["Audit Status"] == "Exempted").sum())
