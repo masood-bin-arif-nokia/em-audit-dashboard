@@ -1,7 +1,8 @@
-# Generated reports
+*.xlsx
 output/
-data/Summary.pptx
-
-# Python
+data/*.xlsx
 __pycache__/
-*.pyc
+.env
+.vscode/
+.idea/
+*.log
