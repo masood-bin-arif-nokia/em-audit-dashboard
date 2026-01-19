@@ -34,12 +34,14 @@ df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 # ================= FLM RISK LOADER =================
 @st.cache_data
 def load_flm_risk():
-    return pd.read_excel("output/FLM_Risk_Summary.xlsx")
+    return pd.read_excel("data/FLM_Risk_Summary.xlsx")
 
 # ================= HELPERS =================
 def get_last_generated_time(file_path):
     if os.path.exists(file_path):
-        return datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%d %b %Y, %H:%M")
+        return datetime.fromtimestamp(
+            os.path.getmtime(file_path)
+        ).strftime("%d %b %Y, %H:%M")
     return "Not generated yet"
 
 def generate_pdf(df):
@@ -50,6 +52,7 @@ def generate_pdf(df):
     c.setFont("Helvetica-Bold", 18)
     c.drawString(40, y, "EM Audit Dashboard Summary")
     y -= 30
+
     c.setFont("Helvetica", 10)
     c.drawString(40, y, f"Generated on: {datetime.now():%d %b %Y %H:%M}")
     y -= 30
@@ -58,7 +61,7 @@ def generate_pdf(df):
     passed = (df[STATUS_COL] == "Pass").sum()
     failed = (df[STATUS_COL] == "Fail").sum()
 
-    c.drawString(40, y, f"Total: {total}")
+    c.drawString(40, y, f"Total Sites: {total}")
     y -= 15
     c.drawString(40, y, f"Pass: {passed}")
     y -= 15
@@ -72,22 +75,30 @@ def generate_pdf(df):
 # ================= TITLE =================
 st.title("⚡ EM Audit – Neon Analytics Dashboard")
 
-# ================= DOWNLOAD =================
-ppt_path = "output/Summary.pptx"
+# ================= DOWNLOAD SECTION =================
+ppt_path = "data/Summary.pptx"
 last_generated = get_last_generated_time(ppt_path)
 
 st.markdown("## 📥 Download Reports")
 st.caption(f"🕒 Last Generated: **{last_generated}**")
 
 if os.path.exists(ppt_path):
-    if st.button("📦 Download Dashboard (PDF + PPT)"):
-        pdf = generate_pdf(df)
-        zip_buf = BytesIO()
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
-            z.writestr("EM_Audit_Summary.pdf", pdf.getvalue())
-            z.write(ppt_path, "EM_Audit_Summary.pptx")
-        zip_buf.seek(0)
-        st.download_button("⬇ Download ZIP", zip_buf, "EM_Audit_Dashboard.zip")
+    pdf = generate_pdf(df)
+
+    zip_buf = BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("EM_Audit_Summary.pdf", pdf.getvalue())
+        z.write(ppt_path, "EM_Audit_Summary.pptx")
+    zip_buf.seek(0)
+
+    st.download_button(
+        "📦 Download Dashboard (PDF + PPT)",
+        zip_buf,
+        "EM_Audit_Dashboard.zip",
+        "application/zip"
+    )
+else:
+    st.warning("⚠ Summary.pptx not found in data/ folder")
 
 # ================= CSS =================
 st.markdown("""
@@ -114,6 +125,7 @@ st.markdown("## 🚀 Executive Overview")
 total = len(df)
 pass_cnt = (df[STATUS_COL] == "Pass").sum()
 fail_cnt = (df[STATUS_COL] == "Fail").sum()
+
 pass_pct = round(pass_cnt / total * 100, 1)
 fail_pct = round(fail_cnt / total * 100, 1)
 
@@ -124,8 +136,16 @@ c3.markdown(f"<div class='neon-card'><div class='neon-title'>Fail</div><div clas
 
 # ================= DONUT =================
 st.markdown("## 🎯 Audit Status Distribution")
-fig = px.pie(df, names=STATUS_COL, hole=0.55,
-             color_discrete_map={"Pass":"#22C55E","Fail":"#EF4444","Exempted":"#F59E0B"})
+fig = px.pie(
+    df,
+    names=STATUS_COL,
+    hole=0.55,
+    color_discrete_map={
+        "Pass": "#22C55E",
+        "Fail": "#EF4444",
+        "Exempted": "#F59E0B"
+    }
+)
 fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
 
@@ -138,8 +158,8 @@ for i, region in enumerate(df[REGION_COL].dropna().unique()):
     t = len(r)
     p = (r[STATUS_COL] == "Pass").sum()
     f = (r[STATUS_COL] == "Fail").sum()
-    p_pct = round(p/t*100,1) if t else 0
-    f_pct = round(f/t*100,1) if t else 0
+    p_pct = round(p/t*100, 1) if t else 0
+    f_pct = round(f/t*100, 1) if t else 0
 
     with cols[i % 4]:
         st.markdown(f"""
@@ -150,132 +170,31 @@ for i, region in enumerate(df[REGION_COL].dropna().unique()):
         </div>
         """, True)
 
-# ================= DISTRICT PERFORMANCE =================
-st.markdown("## 🧭 District Performance (By Region)")
-df_d = df.dropna(subset=[REGION_COL, DISTRICT_COL])
-
-for region in df_d[REGION_COL].unique():
-    st.markdown(f"### {region}")
-    cols = st.columns(4)
-    r_df = df_d[df_d[REGION_COL] == region]
-
-    for i, dist in enumerate(r_df[DISTRICT_COL].unique()):
-        d = r_df[r_df[DISTRICT_COL] == dist]
-        t = len(d)
-        p = (d[STATUS_COL] == "Pass").sum()
-        f = (d[STATUS_COL] == "Fail").sum()
-        f_pct = round(f/t*100,1) if t else 0
-
-        glow = "neon-red" if f_pct>=30 else "neon-amber" if f_pct>=10 else "neon-green"
-
-        with cols[i % 4]:
-            st.markdown(f"""
-            <div class="neon-card {glow}">
-                <div class="neon-title">{dist}</div>
-                <div class="neon-value">{t}</div>
-                <div class="neon-sub">Pass: {p} | Fail: {f} ({f_pct}%)</div>
-            </div>
-            """, True)
-
-# ================= FLM RISK SUMMARY =================
-st.markdown("## 🚨 FLM Risk Summary")
-st.caption("Visit-level risk derived from PASS truth. Matches total failed records.")
-
-# filter only PASS + FAIL
-df_flm = df[df[STATUS_COL].isin(["Pass", "Fail"])]
-
-# group at VISIT level (not site level)
-flm_risk = (
-    df_flm
-    .groupby([REGION_COL, DISTRICT_COL, FLM_COL])
-    .agg(
-        **{
-            "Total Sites": (SITE_COL, "nunique"),
-            "Fail": (STATUS_COL, lambda x: (x == "Fail").sum()),
-            "Pass": (STATUS_COL, lambda x: (x == "Pass").sum())
-        }
-    )
-    .reset_index()
-)
-
-# keep only FLMs with failures
-flm_risk = flm_risk[flm_risk["Fail"] > 0]
-
-# calculate %
-flm_risk["Fail %"] = (
-    flm_risk["Fail"] / (flm_risk["Fail"] + flm_risk["Pass"]) * 100
-).round(1)
-
-# -------- ADD TOTAL ROW (MATCHES 201) --------
-total_row = {
-    REGION_COL: "TOTAL",
-    DISTRICT_COL: "",
-    FLM_COL: "",
-    "Total Sites": flm_risk["Total Sites"].sum(),
-    "Pass": flm_risk["Pass"].sum(),
-    "Fail": flm_risk["Fail"].sum(),
-    "Fail %": round(
-        flm_risk["Fail"].sum()
-        / (flm_risk["Fail"].sum() + flm_risk["Pass"].sum())
-        * 100,
-        1
-    )
-}
-
-flm_risk = pd.concat(
-    [flm_risk, pd.DataFrame([total_row])],
-    ignore_index=True
-)
-
-# sort but keep TOTAL at bottom
-body = flm_risk[flm_risk[REGION_COL] != "TOTAL"]
-total = flm_risk[flm_risk[REGION_COL] == "TOTAL"]
-
-flm_risk = pd.concat([
-    body.sort_values(["Fail", "Fail %"], ascending=False),
-    total
-])
-
-st.dataframe(flm_risk, use_container_width=True, height=520)
-
-# ================= FAILED VISITS – DETAILED EXPORT =================
+# ================= FAILED VISITS EXPORT =================
 st.markdown("## ❌ Failed Visits – Detailed Export")
-st.caption("All failed visits (visit-level). Count matches Executive Overview.")
 
-# Filter FAILED visits (visit-level → will be 201)
 failed_visits = df[df[STATUS_COL] == "Fail"].copy()
 
-# Select required columns safely
 export_cols = [
-    SITE_COL,                      # SiteID
-    "Date of visit",               # (2) Visit Date
+    SITE_COL,
+    "Date of visit",
     REGION_COL,
     DISTRICT_COL,
     FLM_COL,
-    "Email1",                      # (4) FLM Email
-    "Audit remarks",               # (1) Audit remarks
-    "District_Region_Status",      # (3) Region + District status
-    "Month",                       # (6) Month
+    "Email1",
+    "Audit remarks",
+    "District_Region_Status",
+    "Month",
 ]
 
-# Keep only columns that exist (prevents crash)
 export_cols = [c for c in export_cols if c in failed_visits.columns]
-
 failed_export = failed_visits[export_cols]
 
-# Show count confirmation
 st.success(f"Total Failed Visits: {len(failed_export)}")
+st.dataframe(failed_export, use_container_width=True, height=520)
 
-# Display table
-st.dataframe(
-    failed_export,
-    use_container_width=True,
-    height=520
-)
-
-# Download button
 excel_buffer = BytesIO()
-failed_export.to_excel(excel_buffer, index=False, sheet_name="Failed_Visits")
+failed_export.to_excel(excel_buffer, index=False)
 excel_buffer.seek(0)
 
 st.download_button(
@@ -284,4 +203,3 @@ st.download_button(
     "Failed_Visits_Detailed.xlsx",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
