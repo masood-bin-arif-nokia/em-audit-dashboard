@@ -18,6 +18,7 @@ DISTRICT_COL = "District(Updated)"
 FLM_COL = "FLM Name"
 SITE_COL = "SiteID"
 STATUS_COL = "Audit Status"
+CURRENT_COL = "Current Status"
 
 # ================= LOAD DATA =================
 @st.cache_data
@@ -27,12 +28,15 @@ def load_data():
 df = load_data()
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
-# ================= FLM RISK =================
-FLM_PATH = "data/FLM_Risk_Summary.xlsx"
+# 🔑 USE MIRROR CURRENT RECORDS ONLY
+df_current = df[df[CURRENT_COL] == "YES"].copy()
 
+# ================= FLM RISK =================
 @st.cache_data
 def load_flm_risk():
-    return pd.read_excel(FLM_PATH)
+    return pd.read_excel("data/FLM_Risk_Summary.xlsx")
+
+flm_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
 
 # ================= HELPERS =================
 def get_last_generated_time(path):
@@ -45,7 +49,6 @@ st.title("⚡ EM Audit – Neon Analytics Dashboard")
 
 # ================= DOWNLOAD =================
 ppt_path = "data/Summary.pptx"
-
 st.markdown("## 📥 Download Reports")
 st.caption(f"🕒 Last Generated: **{get_last_generated_time(ppt_path)}**")
 
@@ -77,12 +80,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= EXECUTIVE OVERVIEW =================
-st.markdown("## 🚀 Executive Overview")
+# ================= EXECUTIVE OVERVIEW (MIRROR ONLY) =================
+st.markdown("## 🚀 Executive Overview (Latest Status Only)")
 
-total = len(df)
-pass_cnt = (df[STATUS_COL] == "Pass").sum()
-fail_cnt = (df[STATUS_COL] == "Fail").sum()
+total = len(df_current)
+pass_cnt = (df_current[STATUS_COL] == "Pass").sum()
+fail_cnt = (df_current[STATUS_COL] == "Fail").sum()
 
 c1, c2, c3 = st.columns(3)
 c1.markdown(f"<div class='neon-card'><div class='neon-title'>Total</div><div class='neon-value'>{total}</div></div>", True)
@@ -91,26 +94,21 @@ c3.markdown(f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div>
 
 # ================= DONUT =================
 st.markdown("## 🎯 Audit Status Distribution")
-
 fig = px.pie(
-    df,
+    df_current,
     names=STATUS_COL,
     hole=0.55,
-    color_discrete_map={
-        "Pass": "#22C55E",
-        "Fail": "#EF4444",
-        "Exempted": "#F59E0B"
-    }
+    color_discrete_map={"Pass":"#22C55E","Fail":"#EF4444","Exempted":"#F59E0B"}
 )
 fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
 
-# ================= REGION PERFORMANCE =================
-st.markdown("## 🌍 Region Performance")
-
+# ================= REGION PERFORMANCE (MIRROR ONLY) =================
+st.markdown("## 🌍 Region Performance (Latest Only)")
 cols = st.columns(4)
-for i, region in enumerate(df[REGION_COL].dropna().unique()):
-    r = df[df[REGION_COL] == region]
+
+for i, region in enumerate(df_current[REGION_COL].dropna().unique()):
+    r = df_current[df_current[REGION_COL] == region]
     t = len(r)
     f = (r[STATUS_COL] == "Fail").sum()
     f_pct = round(f / t * 100, 1) if t else 0
@@ -124,10 +122,10 @@ for i, region in enumerate(df[REGION_COL].dropna().unique()):
         </div>
         """, True)
 
-# ================= DISTRICT PERFORMANCE =================
-st.markdown("## 🧭 District Performance (By Region)")
+# ================= DISTRICT PERFORMANCE (MIRROR ONLY) =================
+st.markdown("## 🧭 District Performance (Latest Only)")
 
-df_d = df.dropna(subset=[REGION_COL, DISTRICT_COL])
+df_d = df_current.dropna(subset=[REGION_COL, DISTRICT_COL])
 
 for region in df_d[REGION_COL].unique():
     st.markdown(f"### {region}")
@@ -151,10 +149,10 @@ for region in df_d[REGION_COL].unique():
             </div>
             """, True)
 
-# ================= FLM RISK SUMMARY =================
+# ================= FLM RISK =================
 st.markdown("## 🚨 FLM Risk Summary")
 
-if os.path.exists(FLM_PATH):
+if flm_exists:
     st.dataframe(load_flm_risk(), use_container_width=True, height=520)
 else:
     st.error("FLM_Risk_Summary.xlsx not found in data/")
@@ -164,7 +162,6 @@ st.markdown("## ❌ Failed Visits – Detailed Export")
 
 failed = df[df[STATUS_COL] == "Fail"].copy()
 
-# Excel export (FULL)
 excel_cols = [
     SITE_COL,
     "Date of visit",
@@ -179,7 +176,6 @@ excel_cols = [
 excel_cols = [c for c in excel_cols if c in failed.columns]
 failed_excel = failed[excel_cols]
 
-# UI table (REMOVED sensitive columns)
 ui_cols = [
     SITE_COL,
     "Date of visit",
@@ -195,7 +191,6 @@ failed_ui = failed[ui_cols]
 st.success(f"Total Failed Visits: {len(failed_ui)}")
 st.dataframe(failed_ui, use_container_width=True, height=520)
 
-# Download Excel
 buf = BytesIO()
 failed_excel.to_excel(buf, index=False)
 buf.seek(0)
