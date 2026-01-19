@@ -27,11 +27,12 @@ def load_data():
 df = load_data()
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
+# ================= FLM RISK LOADER (FIXED PATH) =================
 @st.cache_data
 def load_flm_risk():
     return pd.read_excel("data/FLM_Risk_Summary.xlsx")
 
-flm_risk_file_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
+flm_risk_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
 
 # ================= HELPERS =================
 def get_last_generated_time(file_path):
@@ -44,7 +45,7 @@ def get_last_generated_time(file_path):
 # ================= TITLE =================
 st.title("⚡ EM Audit – Neon Analytics Dashboard")
 
-# ================= DOWNLOAD (PPT ONLY) =================
+# ================= DOWNLOAD =================
 ppt_path = "data/Summary.pptx"
 last_generated = get_last_generated_time(ppt_path)
 
@@ -59,8 +60,25 @@ if os.path.exists(ppt_path):
             file_name="EM_Audit_Executive_Summary.pptx",
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
         )
-else:
-    st.warning("⚠ Summary.pptx not found in data/ folder")
+
+# ================= CSS (UNCHANGED) =================
+st.markdown("""
+<style>
+.neon-card {
+    background: linear-gradient(145deg,#0f172a,#020617);
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 0 15px rgba(0,245,255,.35);
+    border:1px solid rgba(0,245,255,.25);
+}
+.neon-title{color:#00F5FF;font-weight:600}
+.neon-value{font-size:34px;font-weight:800;color:#A7F3D0}
+.neon-sub{color:#9CA3AF;font-size:13px}
+.neon-green{box-shadow:0 0 18px rgba(34,197,94,.6)}
+.neon-amber{box-shadow:0 0 18px rgba(245,158,11,.6)}
+.neon-red{box-shadow:0 0 18px rgba(239,68,68,.6)}
+</style>
+""", unsafe_allow_html=True)
 
 # ================= EXECUTIVE OVERVIEW =================
 st.markdown("## 🚀 Executive Overview")
@@ -68,16 +86,27 @@ st.markdown("## 🚀 Executive Overview")
 total = len(df)
 pass_cnt = (df[STATUS_COL] == "Pass").sum()
 fail_cnt = (df[STATUS_COL] == "Fail").sum()
-exempt_cnt = (df[STATUS_COL] == "Exempted").sum()
+pass_pct = round(pass_cnt / total * 100, 1)
+fail_pct = round(fail_cnt / total * 100, 1)
 
-pass_pct = round(pass_cnt / total * 100, 1) if total else 0
-fail_pct = round(fail_cnt / total * 100, 1) if total else 0
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Audits", total)
-c2.metric("Pass", f"{pass_cnt} ({pass_pct}%)")
-c3.metric("Fail", f"{fail_cnt} ({fail_pct}%)")
-c4.metric("Exempted", exempt_cnt)
+c1, c2, c3 = st.columns(3)
+c1.markdown(
+    f"<div class='neon-card'><div class='neon-title'>Total</div>"
+    f"<div class='neon-value'>{total}</div></div>",
+    True
+)
+c2.markdown(
+    f"<div class='neon-card neon-green'><div class='neon-title'>Pass</div>"
+    f"<div class='neon-value'>{pass_cnt}</div>"
+    f"<div class='neon-sub'>{pass_pct}%</div></div>",
+    True
+)
+c3.markdown(
+    f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div>"
+    f"<div class='neon-value'>{fail_cnt}</div>"
+    f"<div class='neon-sub'>{fail_pct}%</div></div>",
+    True
+)
 
 # ================= DONUT =================
 st.markdown("## 🎯 Audit Status Distribution")
@@ -91,59 +120,39 @@ fig = px.pie(
         "Exempted": "#F59E0B"
     }
 )
+fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
 
 # ================= REGION PERFORMANCE =================
 st.markdown("## 🌍 Region Performance")
 cols = st.columns(4)
 
-for i, region in enumerate(sorted(df[REGION_COL].dropna().unique())):
+for i, region in enumerate(df[REGION_COL].dropna().unique()):
     r = df[df[REGION_COL] == region]
     t = len(r)
     p = (r[STATUS_COL] == "Pass").sum()
     f = (r[STATUS_COL] == "Fail").sum()
-    p_pct = round(p / t * 100, 1) if t else 0
     f_pct = round(f / t * 100, 1) if t else 0
 
     with cols[i % 4]:
-        st.metric(
-            label=region,
-            value=t,
-            delta=f"Fail: {f} ({f_pct}%)"
-        )
+        st.markdown(f"""
+        <div class="neon-card">
+            <div class="neon-title">{region}</div>
+            <div class="neon-value">{t}</div>
+            <div class="neon-sub">Fail: {f} ({f_pct}%)</div>
+        </div>
+        """, True)
 
-# ================= DISTRICT PERFORMANCE =================
-st.markdown("## 🧭 District Performance (By Region)")
-df_d = df.dropna(subset=[REGION_COL, DISTRICT_COL])
-
-for region in sorted(df_d[REGION_COL].unique()):
-    st.markdown(f"### {region}")
-    cols = st.columns(4)
-    r_df = df_d[df_d[REGION_COL] == region]
-
-    for i, dist in enumerate(sorted(r_df[DISTRICT_COL].unique())):
-        d = r_df[r_df[DISTRICT_COL] == dist]
-        t = len(d)
-        f = (d[STATUS_COL] == "Fail").sum()
-        f_pct = round(f / t * 100, 1) if t else 0
-
-        with cols[i % 4]:
-            st.metric(
-                label=dist,
-                value=t,
-                delta=f"Fail {f_pct}%"
-            )
-
-# ================= FLM RISK SUMMARY =================
+# ================= FLM RISK SUMMARY (FIXED) =================
 st.markdown("## 🚨 FLM Risk Summary")
 
-if flm_risk_file_exists:
+if flm_risk_exists:
     flm_risk = load_flm_risk()
     st.dataframe(flm_risk, use_container_width=True, height=520)
 else:
-    st.warning("FLM_Risk_Summary.xlsx not found")
+    st.error("FLM_Risk_Summary.xlsx not found in data/")
 
-# ================= FAILED VISITS – DETAILED EXPORT =================
+# ================= FAILED VISITS =================
 st.markdown("## ❌ Failed Visits – Detailed Export")
 
 failed_visits = df[df[STATUS_COL] == "Fail"].copy()
