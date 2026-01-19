@@ -26,9 +26,11 @@ def load_data():
     return pd.read_excel("data/Mirror_C1.xlsx")
 
 df = load_data()
+
+# Normalize columns
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
-# 🔑 USE MIRROR CURRENT RECORDS ONLY
+# ================= USE MIRROR v1.1 (LATEST ONLY) =================
 df_current = df[df[CURRENT_COL] == "YES"].copy()
 
 # ================= FLM RISK =================
@@ -93,17 +95,21 @@ c2.markdown(f"<div class='neon-card neon-green'><div class='neon-title'>Pass</di
 c3.markdown(f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div><div class='neon-value'>{fail_cnt}</div></div>", True)
 
 # ================= DONUT =================
-st.markdown("## 🎯 Audit Status Distribution")
+st.markdown("## 🎯 Audit Status Distribution (Latest Only)")
 fig = px.pie(
     df_current,
     names=STATUS_COL,
     hole=0.55,
-    color_discrete_map={"Pass":"#22C55E","Fail":"#EF4444","Exempted":"#F59E0B"}
+    color_discrete_map={
+        "Pass": "#22C55E",
+        "Fail": "#EF4444",
+        "Exempted": "#F59E0B"
+    }
 )
 fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
 
-# ================= REGION PERFORMANCE (MIRROR ONLY) =================
+# ================= REGION PERFORMANCE =================
 st.markdown("## 🌍 Region Performance (Latest Only)")
 cols = st.columns(4)
 
@@ -122,7 +128,7 @@ for i, region in enumerate(df_current[REGION_COL].dropna().unique()):
         </div>
         """, True)
 
-# ================= DISTRICT PERFORMANCE (MIRROR ONLY) =================
+# ================= DISTRICT PERFORMANCE =================
 st.markdown("## 🧭 District Performance (Latest Only)")
 
 df_d = df_current.dropna(subset=[REGION_COL, DISTRICT_COL])
@@ -149,7 +155,7 @@ for region in df_d[REGION_COL].unique():
             </div>
             """, True)
 
-# ================= FLM RISK =================
+# ================= FLM RISK SUMMARY =================
 st.markdown("## 🚨 FLM Risk Summary")
 
 if flm_exists:
@@ -157,11 +163,12 @@ if flm_exists:
 else:
     st.error("FLM_Risk_Summary.xlsx not found in data/")
 
-# ================= FAILED VISITS =================
+# ================= FAILED VISITS (HISTORY) =================
 st.markdown("## ❌ Failed Visits – Detailed Export")
 
 failed = df[df[STATUS_COL] == "Fail"].copy()
 
+# Excel export (FULL)
 excel_cols = [
     SITE_COL,
     "Date of visit",
@@ -176,6 +183,7 @@ excel_cols = [
 excel_cols = [c for c in excel_cols if c in failed.columns]
 failed_excel = failed[excel_cols]
 
+# UI table (REDACTED)
 ui_cols = [
     SITE_COL,
     "Date of visit",
