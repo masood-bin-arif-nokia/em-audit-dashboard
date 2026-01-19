@@ -27,19 +27,17 @@ def load_data():
 df = load_data()
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
-# ================= FLM RISK LOADER (FIXED PATH) =================
+# ================= FLM RISK =================
 @st.cache_data
 def load_flm_risk():
     return pd.read_excel("data/FLM_Risk_Summary.xlsx")
 
-flm_risk_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
+flm_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
 
 # ================= HELPERS =================
-def get_last_generated_time(file_path):
-    if os.path.exists(file_path):
-        return datetime.fromtimestamp(
-            os.path.getmtime(file_path)
-        ).strftime("%d %b %Y, %H:%M")
+def get_last_generated_time(path):
+    if os.path.exists(path):
+        return datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d %b %Y, %H:%M")
     return "Not generated yet"
 
 # ================= TITLE =================
@@ -47,21 +45,19 @@ st.title("⚡ EM Audit – Neon Analytics Dashboard")
 
 # ================= DOWNLOAD =================
 ppt_path = "data/Summary.pptx"
-last_generated = get_last_generated_time(ppt_path)
-
 st.markdown("## 📥 Download Reports")
-st.caption(f"🕒 Last Generated: **{last_generated}**")
+st.caption(f"🕒 Last Generated: **{get_last_generated_time(ppt_path)}**")
 
 if os.path.exists(ppt_path):
     with open(ppt_path, "rb") as f:
         st.download_button(
             "⬇ Download Executive PPT",
             f,
-            file_name="EM_Audit_Executive_Summary.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "EM_Audit_Executive_Summary.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         )
 
-# ================= CSS (UNCHANGED) =================
+# ================= CSS =================
 st.markdown("""
 <style>
 .neon-card {
@@ -86,27 +82,11 @@ st.markdown("## 🚀 Executive Overview")
 total = len(df)
 pass_cnt = (df[STATUS_COL] == "Pass").sum()
 fail_cnt = (df[STATUS_COL] == "Fail").sum()
-pass_pct = round(pass_cnt / total * 100, 1)
-fail_pct = round(fail_cnt / total * 100, 1)
 
 c1, c2, c3 = st.columns(3)
-c1.markdown(
-    f"<div class='neon-card'><div class='neon-title'>Total</div>"
-    f"<div class='neon-value'>{total}</div></div>",
-    True
-)
-c2.markdown(
-    f"<div class='neon-card neon-green'><div class='neon-title'>Pass</div>"
-    f"<div class='neon-value'>{pass_cnt}</div>"
-    f"<div class='neon-sub'>{pass_pct}%</div></div>",
-    True
-)
-c3.markdown(
-    f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div>"
-    f"<div class='neon-value'>{fail_cnt}</div>"
-    f"<div class='neon-sub'>{fail_pct}%</div></div>",
-    True
-)
+c1.markdown(f"<div class='neon-card'><div class='neon-title'>Total</div><div class='neon-value'>{total}</div></div>", True)
+c2.markdown(f"<div class='neon-card neon-green'><div class='neon-title'>Pass</div><div class='neon-value'>{pass_cnt}</div></div>", True)
+c3.markdown(f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div><div class='neon-value'>{fail_cnt}</div></div>", True)
 
 # ================= DONUT =================
 st.markdown("## 🎯 Audit Status Distribution")
@@ -114,11 +94,7 @@ fig = px.pie(
     df,
     names=STATUS_COL,
     hole=0.55,
-    color_discrete_map={
-        "Pass": "#22C55E",
-        "Fail": "#EF4444",
-        "Exempted": "#F59E0B"
-    }
+    color_discrete_map={"Pass":"#22C55E","Fail":"#EF4444","Exempted":"#F59E0B"}
 )
 fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
@@ -130,7 +106,6 @@ cols = st.columns(4)
 for i, region in enumerate(df[REGION_COL].dropna().unique()):
     r = df[df[REGION_COL] == region]
     t = len(r)
-    p = (r[STATUS_COL] == "Pass").sum()
     f = (r[STATUS_COL] == "Fail").sum()
     f_pct = round(f / t * 100, 1) if t else 0
 
@@ -143,21 +118,48 @@ for i, region in enumerate(df[REGION_COL].dropna().unique()):
         </div>
         """, True)
 
-# ================= FLM RISK SUMMARY (FIXED) =================
+# ================= DISTRICT PERFORMANCE (RESTORED) =================
+st.markdown("## 🧭 District Performance (By Region)")
+
+df_d = df.dropna(subset=[REGION_COL, DISTRICT_COL])
+
+for region in df_d[REGION_COL].unique():
+    st.markdown(f"### {region}")
+    cols = st.columns(4)
+    r_df = df_d[df_d[REGION_COL] == region]
+
+    for i, dist in enumerate(r_df[DISTRICT_COL].unique()):
+        d = r_df[r_df[DISTRICT_COL] == dist]
+        t = len(d)
+        f = (d[STATUS_COL] == "Fail").sum()
+        f_pct = round(f / t * 100, 1) if t else 0
+
+        glow = "neon-red" if f_pct >= 30 else "neon-amber" if f_pct >= 10 else "neon-green"
+
+        with cols[i % 4]:
+            st.markdown(f"""
+            <div class="neon-card {glow}">
+                <div class="neon-title">{dist}</div>
+                <div class="neon-value">{t}</div>
+                <div class="neon-sub">Fail: {f} ({f_pct}%)</div>
+            </div>
+            """, True)
+
+# ================= FLM RISK =================
 st.markdown("## 🚨 FLM Risk Summary")
 
-if flm_risk_exists:
-    flm_risk = load_flm_risk()
-    st.dataframe(flm_risk, use_container_width=True, height=520)
+if flm_exists:
+    st.dataframe(load_flm_risk(), use_container_width=True, height=520)
 else:
     st.error("FLM_Risk_Summary.xlsx not found in data/")
 
 # ================= FAILED VISITS =================
 st.markdown("## ❌ Failed Visits – Detailed Export")
 
-failed_visits = df[df[STATUS_COL] == "Fail"].copy()
+failed = df[df[STATUS_COL] == "Fail"].copy()
 
-export_cols = [
+# Excel export (FULL)
+excel_cols = [
     SITE_COL,
     "Date of visit",
     REGION_COL,
@@ -166,22 +168,35 @@ export_cols = [
     "Email1",
     "Audit remarks",
     "District_Region_Status",
-    "Month",
+    "Month"
 ]
+excel_cols = [c for c in excel_cols if c in failed.columns]
+failed_excel = failed[excel_cols]
 
-export_cols = [c for c in export_cols if c in failed_visits.columns]
-failed_export = failed_visits[export_cols]
+# UI table (REMOVED columns)
+ui_cols = [
+    SITE_COL,
+    "Date of visit",
+    REGION_COL,
+    DISTRICT_COL,
+    FLM_COL,
+    "Audit remarks",
+    "Month"
+]
+ui_cols = [c for c in ui_cols if c in failed.columns]
+failed_ui = failed[ui_cols]
 
-st.success(f"Total Failed Visits: {len(failed_export)}")
-st.dataframe(failed_export, use_container_width=True, height=520)
+st.success(f"Total Failed Visits: {len(failed_ui)}")
+st.dataframe(failed_ui, use_container_width=True, height=520)
 
-excel_buffer = BytesIO()
-failed_export.to_excel(excel_buffer, index=False)
-excel_buffer.seek(0)
+# Download Excel
+buf = BytesIO()
+failed_excel.to_excel(buf, index=False)
+buf.seek(0)
 
 st.download_button(
     "⬇ Download Failed Visits (Excel)",
-    excel_buffer,
+    buf,
     "Failed_Visits_Detailed.xlsx",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
