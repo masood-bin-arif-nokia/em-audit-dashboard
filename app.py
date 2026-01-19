@@ -28,11 +28,11 @@ df = load_data()
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
 # ================= FLM RISK =================
+FLM_PATH = "data/FLM_Risk_Summary.xlsx"
+
 @st.cache_data
 def load_flm_risk():
-    return pd.read_excel("data/FLM_Risk_Summary.xlsx")
-
-flm_exists = os.path.exists("data/FLM_Risk_Summary.xlsx")
+    return pd.read_excel(FLM_PATH)
 
 # ================= HELPERS =================
 def get_last_generated_time(path):
@@ -45,6 +45,7 @@ st.title("⚡ EM Audit – Neon Analytics Dashboard")
 
 # ================= DOWNLOAD =================
 ppt_path = "data/Summary.pptx"
+
 st.markdown("## 📥 Download Reports")
 st.caption(f"🕒 Last Generated: **{get_last_generated_time(ppt_path)}**")
 
@@ -90,19 +91,24 @@ c3.markdown(f"<div class='neon-card neon-red'><div class='neon-title'>Fail</div>
 
 # ================= DONUT =================
 st.markdown("## 🎯 Audit Status Distribution")
+
 fig = px.pie(
     df,
     names=STATUS_COL,
     hole=0.55,
-    color_discrete_map={"Pass":"#22C55E","Fail":"#EF4444","Exempted":"#F59E0B"}
+    color_discrete_map={
+        "Pass": "#22C55E",
+        "Fail": "#EF4444",
+        "Exempted": "#F59E0B"
+    }
 )
 fig.update_layout(paper_bgcolor="#0B0F1A", font_color="#E5E7EB")
 st.plotly_chart(fig, use_container_width=True)
 
 # ================= REGION PERFORMANCE =================
 st.markdown("## 🌍 Region Performance")
-cols = st.columns(4)
 
+cols = st.columns(4)
 for i, region in enumerate(df[REGION_COL].dropna().unique()):
     r = df[df[REGION_COL] == region]
     t = len(r)
@@ -118,7 +124,7 @@ for i, region in enumerate(df[REGION_COL].dropna().unique()):
         </div>
         """, True)
 
-# ================= DISTRICT PERFORMANCE (RESTORED) =================
+# ================= DISTRICT PERFORMANCE =================
 st.markdown("## 🧭 District Performance (By Region)")
 
 df_d = df.dropna(subset=[REGION_COL, DISTRICT_COL])
@@ -145,10 +151,10 @@ for region in df_d[REGION_COL].unique():
             </div>
             """, True)
 
-# ================= FLM RISK =================
+# ================= FLM RISK SUMMARY =================
 st.markdown("## 🚨 FLM Risk Summary")
 
-if flm_exists:
+if os.path.exists(FLM_PATH):
     st.dataframe(load_flm_risk(), use_container_width=True, height=520)
 else:
     st.error("FLM_Risk_Summary.xlsx not found in data/")
@@ -173,7 +179,7 @@ excel_cols = [
 excel_cols = [c for c in excel_cols if c in failed.columns]
 failed_excel = failed[excel_cols]
 
-# UI table (REMOVED columns)
+# UI table (REMOVED sensitive columns)
 ui_cols = [
     SITE_COL,
     "Date of visit",
