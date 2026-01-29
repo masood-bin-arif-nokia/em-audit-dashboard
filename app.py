@@ -18,7 +18,6 @@ DISTRICT_COL = "District(Updated)"
 FLM_COL = "FLM Name"
 SITE_COL = "SiteID"
 STATUS_COL = "Audit Status"
-CURRENT_COL = "Current Status"
 
 # ================= LOAD DATA =================
 @st.cache_data
@@ -30,8 +29,24 @@ df = load_data()
 # Normalize columns
 df.columns = df.columns.str.strip().str.replace("\n", "", regex=False)
 
-# ================= USE MIRROR v1.1 (LATEST ONLY) =================
-df_current = df[df[CURRENT_COL] == "YES"].copy()
+# ================= COMPUTE CURRENT STATUS (DASHBOARD ONLY) =================
+def compute_current_status(df):
+    df = df.copy()
+    df["Date of visit"] = pd.to_datetime(df["Date of visit"], errors="coerce")
+    df["Current Status"] = "NO"
+
+    latest_idx = (
+        df.dropna(subset=["Date of visit"])
+          .sort_values("Date of visit")
+          .drop_duplicates(subset=[SITE_COL], keep="last")
+          .index
+    )
+
+    df.loc[latest_idx, "Current Status"] = "YES"
+    return df
+
+df = compute_current_status(df)
+df_current = df[df["Current Status"] == "YES"].copy()
 
 # ================= FLM RISK =================
 @st.cache_data
@@ -82,7 +97,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= EXECUTIVE OVERVIEW (MIRROR ONLY) =================
+# ================= EXECUTIVE OVERVIEW (LATEST ONLY) =================
 st.markdown("## 🚀 Executive Overview (Latest Status Only)")
 
 total = len(df_current)
@@ -163,12 +178,11 @@ if flm_exists:
 else:
     st.error("FLM_Risk_Summary.xlsx not found in data/")
 
-# ================= FAILED VISITS (HISTORY) =================
+# ================= FAILED VISITS (FULL HISTORY) =================
 st.markdown("## ❌ Failed Visits – Detailed Export")
 
 failed = df[df[STATUS_COL] == "Fail"].copy()
 
-# Excel export (FULL)
 excel_cols = [
     SITE_COL,
     "Date of visit",
@@ -183,7 +197,6 @@ excel_cols = [
 excel_cols = [c for c in excel_cols if c in failed.columns]
 failed_excel = failed[excel_cols]
 
-# UI table (REDACTED)
 ui_cols = [
     SITE_COL,
     "Date of visit",
